@@ -1,5 +1,5 @@
 {
-  "name": "lxs-dice",
+  "name": "@level23archbard/dice",
   "version": "0.1.0",
   "description": "Personal library for dice functions and expressions",
   "author": "level23archbard",
@@ -15,7 +15,10 @@
     "start": "node .",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
-    "test": "jest"
+    "test": "jest",
+    "prepackage": "cp package.json out/package.json",
+    "package": "npm pack ./out",
+    "upload": "npm publish ./out"
   },
   "dependencies": {
     "discord.js": "^14.16.3",
