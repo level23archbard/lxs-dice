@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "es2016",
+    "module": "commonjs",
+    "noImplicitAny": true,
+    "removeComments": true,
+    "rootDir": "${configDir}/src/",
+    "outDir": "${configDir}/out/",
+    "sourceMap": true,
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "include": ["${configDir}/src/**/*"],
+  "exclude": ["${configDir}/node_modules", "${configDir}/**/*.spec.ts"]
+}
