@@ -4,7 +4,10 @@
   "description": "Personal library for dice functions and expressions",
   "author": "level23archbard",
   "license": "MIT",
-  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/level23archbard/lxs-dice.git"
+  },
   "main": "out/main.js",
   "scripts": {
     "clean": "rimraf out",
