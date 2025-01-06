@@ -61,7 +61,7 @@ export class DiceParser {
   };
 
   private isTokenOperator(token: string | undefined): boolean {
-    return !!token && !!this.operators[token]
+    return !!token && !!this.operators[token];
   }
 
   private tokenize(value: string): string[] {
@@ -168,7 +168,7 @@ export class DiceParser {
       if (!this.isTokenGroupStart(top(operatorStack))) {
         outputStack.push(operatorStack.pop()!);
       } else {
-        throw Error("Parens mismatch");
+        throw Error('Parens mismatch');
       }
     }
   
@@ -318,8 +318,8 @@ class InfixArithmeticExpression extends DiceExpression {
   }
 
   roll(): DiceResult {
-    let left = this.left.roll();
-    let right = this.right.roll();
+    const left = this.left.roll();
+    const right = this.right.roll();
     switch (this.operator) {
       case '+': return new AccumulatedResult(left.value + right.value, [...left.diceRolled, ...right.diceRolled]);
       case '-': return new AccumulatedResult(left.value - right.value, [...left.diceRolled, ...right.diceRolled]);

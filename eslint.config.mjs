@@ -15,6 +15,7 @@ export default [
 
       '@typescript-eslint/no-unused-vars': ['error', {
         argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
       }],
 
       'comma-dangle': ['error', {
@@ -25,7 +26,7 @@ export default [
         functions: 'always-multiline',
       }],
 
-      indent: ['error', 2],
+      'indent': ['error', 2, { 'SwitchCase': 1 }],
 
       'quotes': ['error', 'single'],
 
