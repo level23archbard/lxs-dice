@@ -13,12 +13,16 @@
     "clean": "rimraf out && rimraf *.tgz",
     "build": "tsc",
     "start": "node .",
+    "check": "npm run lint && npm run test",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "test": "jest",
     "prepackage": "cp package.json out/package.json && cp -r res/* out/",
     "package": "npm pack ./out",
-    "upload": "npm publish ./out"
+    "upload": "npm publish ./out",
+    "preversion": "npm run check",
+    "version": "npm run build && npm run package",
+    "postversion": "git push && git push --tags && npm run upload"
   },
   "bin": {
     "lxs-dice": "./bin/lxs-dice"

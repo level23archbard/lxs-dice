@@ -1,4 +1,4 @@
-import { DiceParser } from './parser';
+import { DiceParser, DiceParserDiceCount, DiceParserEmptyError, DiceParserSyntaxError } from './parser';
 
 describe('DiceParser', () => {
   let parser: DiceParser;
@@ -16,11 +16,11 @@ describe('DiceParser', () => {
   });
 
   test('does not parse garbage letters', () => {
-    expect(() => parser.parse('asdf')).toThrow();
+    expect(() => parser.parse('asdf')).toThrow(DiceParserSyntaxError);
   });
 
   test('does not parse empty', () => {
-    expect(() => parser.parse('')).toThrow();
+    expect(() => parser.parse('')).toThrow(DiceParserEmptyError);
   });
 
   test('parses d20', () => {
@@ -120,5 +120,65 @@ describe('DiceParser', () => {
       expect(res.value).toBeLessThanOrEqual(minRolledExp);
       expect(res.diceRolled.length).toBe(8);
     }
+  });
+
+  test('throws syntax error for excessive "." character', () => {
+    expect(() => parser.parse('34.28.9')).toThrow(DiceParserSyntaxError);
+  });
+
+  test('throws syntax error for extraneous space between words', () => {
+    expect(() => parser.parse('d d20')).toThrow(DiceParserSyntaxError);
+  });
+
+  test('throws syntax error for consecutive operators', () => {
+    expect(() => parser.parse('1++1')).toThrow(DiceParserSyntaxError);
+  });
+
+  test('throws syntax error for invalid characters', () => {
+    expect(() => parser.parse('4d20`')).toThrow(DiceParserSyntaxError);
+  });
+
+  test('throws syntax error for parenthesis mismatch', () => {
+    expect(() => parser.parse('d20)')).toThrow(DiceParserSyntaxError);
+    expect(() => parser.parse('(d20')).toThrow(DiceParserSyntaxError);
+  });
+
+  test('throws syntax error for operator alone', () => {
+    expect(() => parser.parse('+')).toThrow(DiceParserSyntaxError);
+  });
+
+  test('throws syntax error for words without operator', () => {
+    expect(() => parser.parse('4 5')).toThrow(DiceParserSyntaxError);
+  });
+
+  test('throws syntax error for primitive with too many "d"s', () => {
+    expect(() => parser.parse('4d2d0')).toThrow(DiceParserSyntaxError);
+    expect(() => parser.parse('4dd20')).toThrow(DiceParserSyntaxError);
+  });
+
+  test('throws syntax error for primitive with chars after "d"s', () => {
+    expect(() => parser.parse('da20')).toThrow(DiceParserSyntaxError);
+  });
+
+  test('throws syntax error for primitive with chars before "d"s', () => {
+    expect(() => parser.parse('ad20')).toThrow(DiceParserSyntaxError);
+  });
+
+  test('throws syntax error for primitive for invalid count before "d"s', () => {
+    expect(() => parser.parse('0d20')).toThrow(DiceParserSyntaxError);
+    expect(() => parser.parse('-4d20')).toThrow(DiceParserSyntaxError);
+  });
+
+  test('throws syntax error for primitive with unallowed chars', () => {
+    expect(() => parser.parse('4c20')).toThrow(DiceParserSyntaxError);
+  });
+
+  test('configures maximum dice count', () => {
+    parser.maximumDiceCount = 5;
+    expect(parser.parse('5d20')).toBeTruthy();
+    expect(() => parser.parse('6d20')).toThrow(DiceParserDiceCount);
+
+    parser.maximumDiceCount = undefined;
+    expect(parser.parse('6d20')).toBeTruthy();
   });
 });

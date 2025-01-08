@@ -3,6 +3,13 @@
  */
 export class DiceParser {
   /**
+   * Configurable maximum count of dice allowed by the parser. If defined, parsing counts of dice greater
+   * than this will throw a DiceParserDiceCount error.
+   *
+   * Default is undefined.
+   */
+  maximumDiceCount?: number;
+  /**
    * Parses a string into a dice expression object.
    *
    * @param value Textual representation of a dice expression.
@@ -23,7 +30,7 @@ export class DiceParser {
      */
     const tokens = this.tokenize(value);
     if (!tokens.length) {
-      throw new Error('Empty expression');
+      throw new DiceParserEmptyError();
     }
     const rpnStack = this.shuntingYardConversion(tokens);
     return this.expressionForReversePolishNotation(rpnStack);
@@ -91,13 +98,13 @@ export class DiceParser {
         current += c;
       } else if (c === '.') {
         if (currentParsingStarted && currentAdded) {
-          throw new Error(`Invalid '.' in: '${current}${c}'`);
+          throw new DiceParserSyntaxError('Invalid "." character', trimmedValue.slice(Math.max(0, i - 20), i + 20));
         }
         current += c;
         currentAdded = '.';
       } else if (c === ' ') {
         if (isCharPrimitive(prevC) && isCharPrimitive(nextC)) {
-          throw new Error(`Space in token: '${current}${c}${nextC}'`);
+          throw new DiceParserSyntaxError('Extraneous space between tokens', trimmedValue.slice(Math.max(0, i - 20), i + 20));
         }
       } else if (isCharOperator(c) || this.isTokenGroupStart(c) || this.isTokenGroupEnd(c) || c === ',') {
         if (
@@ -105,7 +112,7 @@ export class DiceParser {
           !currentParsingStarted &&
           isCharOperator(lastToken || '')
         ) {
-          throw new Error(`Consecutive operators: '${lastToken!}${c}'`);
+          throw new DiceParserSyntaxError('Consecutive operators', trimmedValue.slice(Math.max(0, i - 20), i + 20));
         }
         if (currentParsingStarted) {
           tokens.push(current);
@@ -114,7 +121,7 @@ export class DiceParser {
         current = '';
         currentAdded = undefined;
       } else {
-        throw new Error(`Invalid characters: '${c}'`);
+        throw new DiceParserSyntaxError('Invalid character ' + c, trimmedValue.slice(Math.max(0, i - 20), i + 20));
       }
     }
 
@@ -142,15 +149,15 @@ export class DiceParser {
         if (operatorStack.length && this.isTokenGroupStart(top(operatorStack))) {
           operatorStack.pop();
         } else {
-          throw Error('Parens mismatch');
+          throw new DiceParserSyntaxError('Parenthesis mismatch');
         }
         // If we support functions, this is where we move the function on the top of the operator stack to the output stack
-      }  else if (token === ',') {
+      } else if (token === ',') {
         while (operatorStack.length && !this.isTokenGroupStart(top(operatorStack))) {
           outputStack.push(operatorStack.pop()!);
         }
         if (operatorStack.length === 0) {
-          throw new Error('Misplaced ","');
+          throw new DiceParserSyntaxError('Misplaced ","');
         }
       } else if (this.isTokenOperator(token)) {
         while (operatorStack.length && this.isTokenOperator(top(operatorStack)) && this.operators[top(operatorStack)!].precedence >= this.operators[token].precedence) {
@@ -168,7 +175,7 @@ export class DiceParser {
       if (!this.isTokenGroupStart(top(operatorStack))) {
         outputStack.push(operatorStack.pop()!);
       } else {
-        throw Error('Parens mismatch');
+        throw new DiceParserSyntaxError('Parenthesis mismatch');
       }
     }
   
@@ -177,6 +184,7 @@ export class DiceParser {
 
   private expressionForReversePolishNotation(tokens: string[]): DiceExpression {
     const stack: DiceExpression[] = [];
+    let diceCount = 0;
 
     tokens.forEach(token => {
       if (this.isTokenOperator(token)) {
@@ -184,18 +192,25 @@ export class DiceParser {
         const params: DiceExpression[] = [];
         for (let i = 0; i < operator.arguments; i++) {
           if (!stack.length) {
-            throw new Error('Incorrect amount of arguments');
+            throw new DiceParserSyntaxError('Incorrect amount of arguments');
           }
           params.push(stack.pop()!);
         }
         stack.push(operator.operation(...params.reverse()));
       } else {
-        stack.push(this.expressionForPrimitive(token));
+        const exp = this.expressionForPrimitive(token);
+        if (this.maximumDiceCount != undefined && exp instanceof CountedDiceRollExpression) {
+          diceCount += exp.count;
+          if (diceCount > this.maximumDiceCount) {
+            throw new DiceParserDiceCount(this.maximumDiceCount);
+          }
+        }
+        stack.push(exp);
       }
     });
   
     if (stack.length > 1) {
-      throw new Error('Insufficient operators');
+      throw new DiceParserSyntaxError('Insufficient operators');
     }
     return stack[0];
   }
@@ -208,30 +223,30 @@ export class DiceParser {
    * @returns A dice expression structure to roll that primitive interpretation.
    */
   private expressionForPrimitive(token: string): DiceExpression {
-    const isNumeric = (value: string) => !isNaN(parseFloat(value));
+    const isNumeric = (value: string) => !isNaN(+value) && !isNaN(parseFloat(value));
     const tokenLower = token.toLowerCase();
     if (tokenLower.includes('d')) {
       const parts = tokenLower.split('d');
       if (parts.length !== 2) {
-        throw new Error(`Unrecognized input with too may letter d's: ${token}`);
+        throw new DiceParserSyntaxError(`Unrecognized input with too may letter d's: ${token}`);
       }
       if (!isNumeric(parts[1])) {
-        throw new Error(`Unrecognized input following letter d: ${token}`);
+        throw new DiceParserSyntaxError(`Unrecognized input following letter d: ${token}`);
       }
       const countPart = parts[0] || '1';
       if (!isNumeric(countPart)) {
-        throw new Error(`Unrecognized input before letter d: ${token}`);
+        throw new DiceParserSyntaxError(`Unrecognized input before letter d: ${token}`);
       }
       const count = parseFloat(countPart);
       if (count < 1) {
-        throw new Error(`Unallowed count before letter d: ${token}`);
+        throw new DiceParserSyntaxError(`Unallowed count before letter d: ${token}`);
       }
       return new CountedDiceRollExpression(count, new DiceRollExpression(parseFloat(parts[1])));
     }
     if (isNumeric(token)) {
       return new NumericalExpression(parseFloat(token));
     }
-    throw new Error(`Unrecognized input: ${token}`);
+    throw new DiceParserSyntaxError(`Unrecognized input: ${token}`);
   }
 }
 
@@ -247,6 +262,26 @@ interface Operator {
   operation: (...args: DiceExpression[]) => DiceExpression,
   arguments: number;
   precedence: number;
+}
+
+export abstract class DiceParserError extends Error {}
+
+export class DiceParserEmptyError extends DiceParserError {
+  constructor() {
+    super('Empty expression');
+  }
+}
+
+export class DiceParserSyntaxError extends DiceParserError {
+  constructor(issue: string, location?: string) {
+    super(`${issue}${location ? ' @ ' + location : ''}`);
+  }
+}
+
+export class DiceParserDiceCount extends DiceParserError {
+  constructor(allowed: number) {
+    super(`Too many dice in expression, no more than ${allowed} is allowed`);
+  }
 }
 
 /**
@@ -298,7 +333,7 @@ class DiceRollExpression extends DiceExpression {
 }
 
 class CountedDiceRollExpression extends DiceExpression {
-  constructor(private count: number, private dice: DiceRollExpression) {
+  constructor(public count: number, private dice: DiceRollExpression) {
     super();
   }
 
